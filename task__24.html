@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Document</title>
+</head>
+<body>
+   <!-- 7 полей -->
+   <div class="loader-block">
+      <span class="loader"></span>
+   </div>
+   <div class="wrapper">
+      <div class="container">
+         <h1>Таблица пользователей</h1>
+         <table>
+            <tr>
+               <th value="fname">Имя</th>
+               <th value="lname">Фамилия</th>
+               <th value="tel">Телефон</th>
+               <th value="address">Адрес</th>
+               <th value="city">Город</th>
+               <th value="state">Штат</th>
+               <th value="zip">Индекс</th>
+            </tr>
+         </table>
+         <div class="pagination">
+            <button class="page__down">&#60;</button>
+            <p>
+               <span class="current__page"></span>
+               /
+               <span class="all__page"></span>
+            </p>
+            <button class="page__up">&#62;</button>
+         </div>
+      </div>
+   </div>
+
+   <style>
+      *{
+         padding: 0;
+         margin: 0;
+      }
+      .loader-block{
+         position: fixed;
+         width: 100%;
+         height: 100%;
+         z-index: 100;
+         background-color: #FFF;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+      }
+
+      .loader {
+         /* margin-top: 180px; */
+         width: 140px;
+         height: 140px;
+         border: 10px solid black;
+         border-bottom-color: transparent;
+         border-radius: 50%;
+         display: inline-block;
+         box-sizing: border-box;
+         animation: rotation 1s linear infinite;
+      }
+
+         @keyframes rotation {
+            0% {
+               transform: rotate(0deg);
+            }
+            100% {
+               transform: rotate(360deg);
+            }
+         } 
+
+      table{
+         min-width: 100%;
+         border-collapse: collapse;
+         border: 2px solid white;
+      }
+
+      tr:first-child{
+         cursor: pointer;
+         font-weight: 700;
+      }
+
+      tr:first-child th{
+         font-weight: 700;
+      }
+
+      tr th{
+         font-weight: 400;
+      }
+
+      .container{
+         display: flex;
+         flex-direction: column;
+         align-items: center;
+         gap: 10px;
+      }
+
+      th{
+         border: 1px solid ;
+      }
+
+      th.top::after{
+         content: '↑';
+         margin-left: 5px;
+      }
+
+      th.down::after{
+         content: '↓';
+         margin-left: 5px;
+      }
+
+      .pagination{
+         display: flex;
+         align-items: center;
+         gap: 20px;
+         margin: 10px 0 20px;
+      }
+
+      button{
+         outline: none;
+         background-color: blue;
+         color: white;
+         font-weight: 700;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         border: none;
+         padding: 5px 10px;
+         border-radius: 5px;
+         cursor: pointer;
+      }
+   </style>
+
+   <script >
+      // Берём элементы DOM дерева
+      const table = document.querySelector('table')
+      const pageUpBtn = document.querySelector('.page__up')
+      const pageDownBtn = document.querySelector('.page__down')
+      const currentPageText = document.querySelector('.current__page')
+      const allPagesText = document.querySelector('.all__page')
+
+      const url = 'http://www.filltext.com/?rows=1000&fname={firstName}&lname={lastName}&tel={phone|format}&address={streetAddress}&city={city}&state={usState|abbr}&zip={zip}&pretty=true'
+      // Результатирующий массив данных
+      let data = []
+      // Часть массива, которая будет отображена на странице 
+      let dataTable = []
+      // Текущая страница
+      let currentPage = 1
+      // Стартовый индекс отображённого массива
+      let startDataObj = 0
+      // Последний индекс отображённого массива
+      let dataLength = currentPage*50
+      // Количество страниц
+      let allPages = 0
+
+      // Функция, которая для получения данных
+      const getUsers = async (url) => {
+         const response = await fetch(url)
+         const json = await response.json()
+         data = json
+         dataTable = data.slice(startDataObj, dataLength)
+         allPages = data.length / 50
+         // Перезаписываем кол-во страниц и текущую страницу
+         currentPageText.innerText = currentPage
+         allPagesText.innerText = allPages 
+      }
+
+      // Функция добавления бизнес-логики на страницу
+      setTableData = (data) => {
+         for(let i = 0; i < data.length; i++){
+            let tr = document.createElement('tr')
+
+            for(let key in data[i]){
+               let th = document.createElement('th')
+               th.innerText = data[i][key]
+               tr.appendChild(th)
+            }
+            table.appendChild(tr)
+         }
+      }
+
+      // Не работает предзагрузка
+      window.onload = async () => {
+         // Делаем альтернативную предзагрузку логики на страницу
+         // Указатель на прелоадер
+         let isLoaded = false
+         // Получаем данные
+         await getUsers(url)
+         // Загружаем данные на страницу
+         setTableData(dataTable)
+         // Меняем метку и удаляем прелоадер
+         isLoaded = true
+         if(isLoaded){
+            document.querySelector('.loader-block').remove()
+         } 
+      } 
+
+      // Функция очищает элементы таблицы, кроме первого ряда
+      const clearTableExeptFirstChild = () => {
+         const firstChild = table.children[0]
+         table.innerHTML = ''
+         table.appendChild(firstChild)
+      }
+
+      // Сортировка по возрастанию
+      const sortByASC = (data, sortedMethod) => {
+         data = data.sort((a, b) => {
+            // Проверка на число
+            if(!isNaN(a[sortedMethod])){
+               return a[sortedMethod] - b[sortedMethod]
+            } else{
+               // Сортировка элементов типа строки по возрастанию
+               // Телефон и адрес считаются строками, хотя по логике мы бы их сортировали по числам внутри полей
+               return a[sortedMethod].localeCompare(b[sortedMethod])
+            }
+         }) 
+      }
+
+      // Сортировка по убыванию
+      const sortByDESC = (data, sortedMethod) => {
+         data = data.sort((a, b) => {
+            if(!isNaN(a[sortedMethod])){
+               return b[sortedMethod] - a[sortedMethod]
+            } else{
+               // Сортировка элементов типа строки по возрастанию
+               // Телефон и адрес считаются строками, хотя по логике мы бы их сортировали по числам внутри полей
+               return b[sortedMethod] - a[sortedMethod]
+            }
+         }) 
+
+         // Если мы выбрали сортировку не по числу, то переворачиваем таблицу
+         if(isNaN(data[0][sortedMethod])){
+            data = data.reverse()
+         }
+      }
+
+      // Функция пагинация вперёд
+      const pageUp = () => {
+         currentPage++
+         startDataObj += 50
+         dataLength = currentPage*50
+      }
+
+      // Функция пагинация назад
+      const pageDown = () => {
+         currentPage--
+         startDataObj -= 50
+         dataLength = currentPage*50
+      }
+
+      // Функция для удаления классов у DOM элемента(не работает такой вариант, где-то ошибка)
+      const removeClass = (className) => {
+         if(document.querySelector(`.${className}`)){
+            document.querySelector(`.${className}`).classList.remove(`{className}`)
+         }
+      }
+
+      document.querySelectorAll('table tr:first-child th').forEach((el) => {
+         el.addEventListener('click', (e) => {
+            if(e.target.classList.contains('top')){
+               // Удаление класса для предыдущего поля
+               if(document.querySelector('.down')){
+                  document.querySelector('.down').classList.remove('down')
+               }
+               if(document.querySelector('.top')){
+                  document.querySelector('.top').classList.remove('top')
+               }
+               e.target.classList.remove('top')
+               e.target.classList.add('down')
+               // Сотрируем по убыванию
+               sortByDESC(dataTable, e.target.getAttribute('value'))
+            } else{
+               // Удаление класса для предыдущего поля
+               if(document.querySelector('.top')){
+                  document.querySelector('.top').classList.remove('top')
+               }
+               if(document.querySelector('.down')){
+                  document.querySelector('.down').classList.remove('down')
+               }
+               e.target.classList.add('top')
+               e.target.classList.remove('down')
+               // Сортировка по возрастанию
+               sortByASC(dataTable, e.target.getAttribute('value'))
+            }
+
+            clearTableExeptFirstChild()
+            setTableData(dataTable)
+         })
+      })
+
+      // Ивенты на пагинацию
+      pageDownBtn.addEventListener('click', () => {
+         // Отключаем кнопку, если достигли предела
+         pageUpBtn.removeAttribute('disabled')
+         // Удаляем классы, потому что надо заново сортировать данные
+         if(document.querySelector('.down')){
+            document.querySelector('.down').classList.remove('down')
+         }
+         if(document.querySelector('.top')){
+            document.querySelector('.top').classList.remove('top')
+         }
+         if(currentPage === 1){
+            pageDownBtn.setAttribute('disabled', true)
+         } else{
+            pageDownBtn.removeAttribute('disabled')
+            pageDown()
+            currentPageText.innerText = currentPage
+            dataTable = data.slice(startDataObj, dataLength)
+            clearTableExeptFirstChild()
+            setTableData(dataTable)
+         }
+      })
+
+      pageUpBtn.addEventListener('click', () => {
+         // Отключаем кнопку, если достигли предела
+         pageDownBtn.removeAttribute('disabled')
+         // Удаляем классы, потому что надо заново сортировать данные
+         if(document.querySelector('.down')){
+            document.querySelector('.down').classList.remove('down')
+         }
+         if(document.querySelector('.top')){
+            document.querySelector('.top').classList.remove('top')
+         }
+         if(currentPage === allPages){
+            pageUpBtn.setAttribute('disabled', true)
+         } else{
+            pageUpBtn.removeAttribute('disabled')
+            pageUp()
+            currentPageText.innerText = currentPage
+            dataTable = data.slice(startDataObj, dataLength)
+            clearTableExeptFirstChild()
+            setTableData(dataTable)
+         }
+      })
+   </script>
+</body>
+</html>

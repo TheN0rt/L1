@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Document</title>
+</head>
+<body>
+   <div class="container">
+      <h1>Подсказки адресов</h1>
+      <label for="input">
+         Введите адрес:
+         <input type="text" name="" id="input" placeholder="Напишите адрес">
+         <div id="datalist">
+
+         </div>
+      </label>
+   </div>
+   <style>
+      body{
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         margin: 250px 0 0;
+      }
+
+      .container{
+         width: 500px;
+         height: 500px;
+         display: flex;
+         flex-direction: column;
+         align-items: center;
+      }
+
+      h1{
+         text-align: center;
+      }
+
+      label{
+         display: flex;
+         flex-direction: column;
+         gap: 10px;
+      }
+
+      #input{         
+         width: 350px;
+         padding: 5px;
+      }
+
+      #datalist{
+         display: flex;
+         flex-direction: column;
+         align-items: center;
+      }
+
+      .option{
+         padding: 5px;
+         min-width: 100%;
+         cursor: pointer;
+      }
+
+      .option:hover{
+         background-color: rgba(255, 255, 255, 0.651);
+         color: #007dff;
+      }
+      
+   </style>
+   <script>
+      // Ссылка на ДаДата API
+      const url = "https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address";
+      // Токен
+      const token = "79e4afa1213c5ad58e014611483a18460a99a284";
+      // const secret = "08421f504f551be60b151ef05e971027cbb4b9c8";
+      // Массив подсказок для адресов
+      let data = [];
+
+      // Функция для поиска подходящий адресов по запросу
+      async function searchAddress(query) {
+
+         // Параметры, которые передаются на сервер API
+         const options = {
+            method: "POST",
+            mode: "cors",
+            headers: {
+               "Content-Type": "application/json",
+               "Accept": "application/json",
+               "Authorization": "Token " + token
+            },
+            body: JSON.stringify({query: query})
+         }
+
+         // Ответ от сервера
+         const response = await fetch(url, options)
+         const json = await response.json()
+         data = json.suggestions
+      }
+
+      // Функция debounce, работает по принципу таймера
+      function debounce(callback, delay){
+         let timer;
+         
+         return function(...args){
+            clearTimeout(timer)
+            timer = setTimeout(() => {
+                  callback.apply(this, args)
+            }, delay)
+         }
+      }
+
+      // Функция throttle
+      function throttle(callback, delay){
+         // Переменные для того, чтобы знать, когда запускать возвращаемую функцию 
+         let isWaiting = false;
+         let saveArgs = null;
+         let saveThis = null;
+         
+         return function wrapper(...args){
+            // Если ждём, то функция ничего не сделает
+            if(isWaiting){
+                  // Записываем аргументы для функции callback и контекст для вызова callback  
+                  saveArgs = args;
+                  saveThis = this
+                  return
+            }
+            callback.apply(this, args)
+            isWaiting = true;
+            // Таймер для запуска функции через указанный промежуток времени
+            setTimeout(() => {
+                  isWaiting = false;
+                  if(saveThis){
+                     wrapper.apply(saveThis, saveArgs)
+                     saveArgs = null;
+                     saveThis = null;
+                  }
+            }, delay)
+         }
+      }
+
+      // Функция для записи адреса
+      const setAddress = (address) => {
+         return address
+      }
+
+      const searchAddressWithDebounce = debounce(searchAddress, 2000)
+
+      // Функция для отправки на сервер запроса и записи данных в переменную
+      const getSuggestions = async (e) => {
+         const address = e.target.value
+         await searchAddressWithDebounce(address)
+         setDatalist(data)
+      }
+
+      // Записываем присланные данные в вплывающий список
+      const setDatalist = (data) => {
+         const datalist = document.querySelector('#datalist')
+         datalist.innerHTML = '';
+
+         for(let i = 0; i < data.length; i++){
+            let option = document.createElement('div')
+            option.classList.add('option')
+            option.innerText = `${data[i].value}`
+            datalist.appendChild(option)
+         }
+      }
+
+      // Функция для установки выбранного значения из выпадающего списка в input 
+      const setValue = (element, value) => {
+         element.value = value
+         // throttle(getSuggestions(element.value), 2500) - не работает, всё завязано на e.target
+         // document.querySelector('#input').addEventListener('change', throttle(getSuggestions, 2500)) - тоже не работает, 
+         // можно было бы указать в html для инпута onChange, но это дурной вкус
+         document.querySelector('#datalist').innerHTML = ''
+      }
+
+
+      document.querySelector('#input').addEventListener('input', throttle(getSuggestions, 2500))
+      document.querySelector('#datalist').addEventListener('click', (e) => {
+         if(e.target.classList.contains('option')){
+            setValue(document.querySelector('#input'), e.target.innerText)
+         }
+      })
+
+   </script>
+</body>
+</html>

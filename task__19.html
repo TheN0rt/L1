@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Document</title>
+</head>
+<body>
+   <div class="wrapper">
+      <div id="widget">
+
+      </div>
+   </div>
+   <style>
+      *{
+         padding: 0;
+         margin: 0;
+      }
+
+      html, body{
+         min-width: 100%;
+         min-height: 100vh;
+         overflow: hidden;
+      }
+
+      .wrapper{
+         width: 100%;
+         height: 100vh;
+         background-color: #4C75A3;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+      }
+
+      #widget{
+         width: 90%;
+         height: 90%;
+         display: flex;
+         flex-direction: column;
+         gap: 20px;
+         background-color: white;
+         overflow-y: scroll;
+         padding: 20px;
+      }
+
+      .widget__item{
+         /* background-color: beige; */
+         border: 1px solid black;
+         border-radius: 10px;
+         display: flex;
+         flex-direction: column;
+         gap: 20px;
+         padding: 20px;
+      }
+
+      .widget__item span{
+         color: gray;
+         font-size: 13px;
+      }
+
+      .widget__item p{
+         font-size: 20px;
+      }
+
+   </style>
+   <script>
+      const token = '21facabc21facabc21facabca622ecd277221fa21facabc44c1a6344b7b8a0762d1bc70'
+      // Массив данных
+      let data = []
+      // Индексы для выборки данных, которые будут браться для показа
+      let startIndex = 0
+      let endIndex = 0
+      // Данные для показа
+      let dataInWidget = []
+      const url = `https://api.vk.com/method/wall.get?owner_id=1&count=100&domain=club1&access_token=${token}&v=5.137&callback=callbackFunc`;
+
+      // Функция для того, чтобы забрать данные из локального хранилища
+      const getDataFromStorage = (key) => {
+         const data = localStorage.getItem(key) 
+
+         // Если данные есть, вернём данные. Иначе ничего не вернем
+         if (data) {
+            return JSON.parse(data);
+         }
+         return null;
+      }
+
+      // Функция для загрузки данных в локальное хранилище
+      const setDataFromStorage = (key, data) => {
+         localStorage.setItem(key, JSON.stringify(data))
+         console.log("данные загружены в локальное хранилище", data.length)
+      }
+
+      function removeOldDataFromLocalStorage() {
+         // Функция для удаления старых данных из localStorage
+         const limit = 5 * 1024 * 1024; // Предел размера localStorage (5 MB)
+         let usedSpace = 0;
+         // Пробегаемя по хранилищу и подсчитываем место
+         for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            const data = localStorage.getItem(key);
+            usedSpace += data.length;
+            // Если место превышает 5мб, удаляем из хранилища старые данные
+            if (usedSpace > limit) {
+               localStorage.removeItem(key);
+               usedSpace -= data.length;
+
+               // Делаем запрос за новыми данными
+               function callbackNewFromDelete(result) {
+                     // Берём только те, которые еще не были добавлены в хранилище и на страницу
+                     newData = result.response.items.slice(data.length, result.response.items[result.response.items.length - 1]);
+                     newDataInWidget = newData.slice(data.length, endIndex)
+                     // Перезаписываем хранилище
+                     setDataFromStorage(url, dataInWidget)
+                  }
+                  // Удаляем старые подключённые скрипты с помощью JSONP и добавляем новый
+                  document.querySelectorAll('head script').forEach(el => el.remove())
+                  let url = `https://api.vk.com/method/wall.get?owner_id=1&count=100&domain=club1&access_token=${token}&v=5.137&callback=callbackNewFromDelete`;
+                  let script = document.createElement('script');
+                  script.src = url
+                  document.getElementsByTagName("head")[0].appendChild(script);
+            }
+         }
+      }
+
+      // Грузим на страницу по 10 постов
+      const setDataInWidget = (data) => {
+         for(let el of data){
+            // Там есть посты без текста, их мы не трогаем
+            if(el.text){
+               const elementOfWidget = document.createElement('div')
+               elementOfWidget.classList.add('widget__item')
+               // Форматируем время
+               let date = new Date(el.date * 1000)
+               const formattedDate = `${date.getDate() < 10 ? '0' + date.getDate() : date.getDate()}:${date.getMonth() + 1 < 10 ? `0${date.getMonth() + 1}` : date.getMonth() + 1}:${date.getFullYear()}`;
+               elementOfWidget.innerHTML = `
+                  <span>${formattedDate}</span>
+                  <p>
+                     ${el.text}
+                  </p>
+               `
+               document.querySelector('#widget').appendChild(elementOfWidget)
+            }
+         }
+      }
+
+      // Проверка на существование данных в хранилище
+      localData = getDataFromStorage(url)
+      // console.log(localData, localData.length)
+
+      // Грузим на страницу, если он есть, если нет, то запрашиваем и грузим на страницу, как делали ранее
+      if(localData){
+         data = localData
+         setDataInWidget(data)
+         console.log("данные загружены", data)
+      } else{
+         let script = document.createElement('script');
+         script.src = url
+         document.getElementsByTagName("head")[0].appendChild(script);
+         function callbackFunc(result) {
+            data = result.response.items
+            endIndex = data.length / 10;
+            dataInWidget = data.slice(startIndex, endIndex);
+            setDataFromStorage(url, dataInWidget)
+            setDataInWidget(dataInWidget)
+         }
+      }
+
+      // Ивент на подгрузку данных на страницу
+      document.querySelector('#widget').addEventListener('scroll', (e) =>{
+         if((e.target.scrollHeight - (e.target.scrollTop + window.innerHeight) < 100) && getDataFromStorage(url).length < 100){
+            if(dataInWidget.length < 100){
+               // Обновляем индексы
+               startIndex = endIndex
+               endIndex = endIndex + 10
+               // Берём новые данные для отображения
+               let newDataInWidget = data.slice(startIndex, endIndex)
+               if(newDataInWidget.length === 0){
+                  // Делаем запрос за данными, как делали ранее
+                  function callbackNew(result) {
+                     newData = result.response.items.slice(startIndex, result.response.items[result.response.items.length - 1]);
+                     newDataInWidget = newData.slice(startIndex, endIndex)
+                     setDataFromStorage(url, dataInWidget)
+                  }
+                  document.querySelectorAll('head script').forEach(el => el.remove())
+                  let url = `https://api.vk.com/method/wall.get?owner_id=1&count=100&domain=club1&access_token=${token}&v=5.137&callback=callbackNew`;
+                  let script = document.createElement('script');
+                  script.src = url
+                  document.getElementsByTagName("head")[0].appendChild(script);
+               }
+
+               // Добавляем в хранилище подгруженные данные и отображаем их на странице
+               setDataInWidget(newDataInWidget)
+               dataInWidget = [...dataInWidget, ...newDataInWidget]
+               setDataFromStorage(url, dataInWidget)
+               removeOldDataFromLocalStorage()
+            }
+         }
+      })
+   </script>
+</body>
+</html>
